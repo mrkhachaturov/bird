@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-04-21
+
+### Added
+- `GET /ready` endpoint on the webhook server. Executes
+  `birdc show status`; returns `200 ready` only if BIRD is actually responsive
+  on its control socket, `503 not ready: <reason>` otherwise. Suitable as a
+  load-balancer health-check target (HAProxy/Traefik/Kubernetes) to steer
+  traffic away from nodes where BIRD is down. `/healthz` remains unchanged
+  as a lightweight liveness probe for the webhook process itself.
+- `BIRD_CTL` environment variable — override the path to the BIRD control
+  socket (default `/var/run/bird/bird.ctl`) for both `/ready` and any future
+  `birdc`-driven tooling.
+- `BGP_PASSWORD` and `BGP_PASSWORD_FILE` — BGP MD5 password delivered via the
+  same `*_FILE` convention as MaxMind credentials (docker-secrets-friendly).
+- Config-file templating: when `BIRD_CONF_TEMPLATE` is set and points at a
+  file, the entrypoint renders it into `BIRD_CONF` via `envsubst` at startup.
+  Supported placeholders:
+  - `${BGP_PASSWORD}` — the raw secret
+  - `${BGP_PASSWORD_LINE}` — the whole `password "xxx";` statement, or an
+    empty string if no password was provided. Use this form to keep BGP auth
+    **optional** — a template referencing `${BGP_PASSWORD_LINE}` renders to
+    a valid config both with and without a password supplied.
+- `gettext-base` (ships `envsubst`) in the runtime image.
+
+### Notes
+- All new features are additive; existing `v0.1.0` configurations continue to
+  work unchanged. `BIRD_CONF_TEMPLATE` is opt-in — if unset, the entrypoint
+  reads `BIRD_CONF` verbatim as before.
+
 ## [0.1.0] - 2026-04-20
 
 ### Added
@@ -49,5 +78,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use `network_mode: host` with `cap_add: [NET_ADMIN, NET_RAW]` for real BGP
   sessions so BIRD's source IP is a host interface, not a NATed container IP.
 
-[Unreleased]: https://github.com/mrkhachaturov/bird/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/mrkhachaturov/bird/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/mrkhachaturov/bird/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mrkhachaturov/bird/releases/tag/v0.1.0

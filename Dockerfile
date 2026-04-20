@@ -52,7 +52,7 @@ RUN apt-get update \
         ca-certificates \
         libssh-4 libreadline8 libncursesw6 \
         iproute2 bash tini \
-        curl unzip gawk python3 whois bgpq4 \
+        curl unzip gawk python3 whois bgpq4 gettext-base \
         libcap2-bin \
     && groupadd -r bird && useradd -r -g bird -d /var/run/bird -s /usr/sbin/nologin bird \
     && mkdir -p /etc/bird /etc/blacklist /var/run/bird /var/cache/blacklist \

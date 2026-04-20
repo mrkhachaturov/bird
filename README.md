@@ -148,7 +148,11 @@ See `examples/docker-compose.yml`.
 | `WEBHOOK_SECRET` | — | Enables the webhook server when set |
 | `WEBHOOK_SECRET_FILE` | — | Read `WEBHOOK_SECRET` from a file |
 | `WEBHOOK_PORT` | `9090` | Port the webhook server listens on |
-| `BIRD_CONF` | `/etc/bird/bird.conf` | Override path to your bird.conf |
+| `BGP_PASSWORD` | — | BGP MD5 password (substituted into `bird.conf.tmpl` via envsubst) |
+| `BGP_PASSWORD_FILE` | — | Read `BGP_PASSWORD` from a file (docker secret) |
+| `BIRD_CONF` | `/etc/bird/bird.conf` | Output path for the rendered config |
+| `BIRD_CONF_TEMPLATE` | — | If set, entrypoint renders template → `BIRD_CONF` via `envsubst` |
+| `BIRD_CTL` | `/var/run/bird/bird.ctl` | Path to BIRD control socket (used by `/ready`) |
 | `SOURCES_FILE` | `/etc/blacklist/sources.yaml` | Override path to sources.yaml |
 
 ### Volumes
@@ -295,6 +299,62 @@ secret='your-secret'
 sig=$(printf '' | openssl dgst -sha256 -hmac "$secret" | awk '{print $2}')
 curl -X POST -H "X-Hub-Signature-256: sha256=$sig" http://localhost:9090/refresh
 ```
+
+---
+
+## Config templating (optional)
+
+For deployments that inject `bird.conf` via docker configs/secrets — e.g. a
+BGP MD5 password that must come from a Docker secret, not be checked into the
+config file — set `BIRD_CONF_TEMPLATE` to a template path. The entrypoint
+renders it with `envsubst` at startup.
+
+Example `bird.conf.tmpl`:
+
+```bird
+protocol bgp MRK {
+    local as 64500;
+    neighbor 10.1.131.1 as 64501;
+    ${BGP_PASSWORD_LINE}         # optional; empty when BGP_PASSWORD unset
+    ipv4 {
+        import none;
+        export filter bgp_out;
+    };
+}
+```
+
+Compose snippet:
+
+```yaml
+services:
+  bird:
+    image: ghcr.io/astrateam-net/bird-maxmind:0.1.1
+    environment:
+      BIRD_CONF_TEMPLATE: /etc/bird/bird.conf.tmpl
+      BGP_PASSWORD_FILE: /run/secrets/bgp_password
+    configs:
+      - source: bird_conf_tmpl
+        target: /etc/bird/bird.conf.tmpl
+    secrets:
+      - bgp_password
+
+configs:
+  bird_conf_tmpl:
+    file: ./bird.conf.tmpl
+
+secrets:
+  bgp_password:
+    external: true
+```
+
+Substitutions available in the template:
+
+| Placeholder | Value |
+|---|---|
+| `${BGP_PASSWORD}` | Raw secret string |
+| `${BGP_PASSWORD_LINE}` | `password "xxx";` if set, empty string otherwise. **Prefer this form** to keep BGP auth optional. |
+
+Any other `$...` tokens in the template are passed through verbatim.
 
 ---
 

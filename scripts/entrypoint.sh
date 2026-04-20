@@ -16,13 +16,33 @@ log() {
 }
 
 # Expand *_FILE secret envs (Docker secret convention)
-for var in MAXMIND_ACCOUNT_ID MAXMIND_LICENSE_KEY WEBHOOK_SECRET; do
+for var in MAXMIND_ACCOUNT_ID MAXMIND_LICENSE_KEY WEBHOOK_SECRET BGP_PASSWORD; do
     file_var="${var}_FILE"
     if [ -n "${!file_var:-}" ] && [ -f "${!file_var}" ]; then
         export "$var"="$(cat "${!file_var}")"
         log "loaded $var from $file_var"
     fi
 done
+
+# Compute BGP_PASSWORD_LINE — the whole `password "xxx";` statement, or empty
+# if no password was provided. This keeps BGP auth OPTIONAL: if BGP_PASSWORD
+# (or BGP_PASSWORD_FILE) is unset, the line renders to nothing and the BGP
+# protocol block has no `password` directive. Matches how bird config treats
+# "no password" semantically.
+if [ -n "${BGP_PASSWORD:-}" ]; then
+    export BGP_PASSWORD_LINE="password \"${BGP_PASSWORD}\";"
+else
+    export BGP_PASSWORD_LINE=""
+fi
+
+# Optional: render bird.conf from a template with envsubst.
+# Substitutes ${BGP_PASSWORD_LINE} and ${BGP_PASSWORD}; any other $ tokens in
+# the template are passed through verbatim.
+if [ -n "${BIRD_CONF_TEMPLATE:-}" ] && [ -f "${BIRD_CONF_TEMPLATE}" ]; then
+    log "rendering ${BIRD_CONF_TEMPLATE} -> ${BIRD_CONF}"
+    envsubst '${BGP_PASSWORD_LINE} ${BGP_PASSWORD}' \
+        < "${BIRD_CONF_TEMPLATE}" > "${BIRD_CONF}"
+fi
 
 BIRD_PID=""
 LOOP_PID=""
