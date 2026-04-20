@@ -1,0 +1,56 @@
+# Example Swarm stack using bird.conf.tmpl + Docker secret for the BGP password.
+#
+# Unlike the plain compose example, here:
+#   - bird.conf.tmpl lives in your git, committed as is (no secrets).
+#   - BGP password lives in a Swarm secret (Raft-encrypted).
+#   - The entrypoint renders the template with envsubst at container start;
+#     the final bird.conf exists only inside the container, never on disk.
+#
+# One-time prep:
+#   echo -n 'your-bgp-md5-secret' | docker secret create bgp_password -
+#
+# Deploy:
+#   docker stack deploy -c docker-compose.swarm.yml bird
+services:
+  bird:
+    image: ghcr.io/astrateam-net/bird-maxmind:0.1.1
+    environment:
+      BIRD_CONF_TEMPLATE:       /etc/bird/bird.conf.tmpl   # ← enables template mode
+      BIRD_CONF:                /etc/bird/bird.conf
+      BGP_PASSWORD_FILE:        /run/secrets/bgp_password
+      MAXMIND_ACCOUNT_ID_FILE:  /run/secrets/maxmind_account_id
+      MAXMIND_LICENSE_KEY_FILE: /run/secrets/maxmind_license_key
+      WEBHOOK_SECRET_FILE:      /run/secrets/webhook_secret
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    configs:
+      - source: bird_conf_tmpl
+        target: /etc/bird/bird.conf.tmpl
+      - source: bird_sources
+        target: /etc/blacklist/sources.yaml
+    secrets:
+      - bgp_password
+      - maxmind_account_id
+      - maxmind_license_key
+      - webhook_secret
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+configs:
+  bird_conf_tmpl:
+    file: ./bird/bird.conf.tmpl
+  bird_sources:
+    file: ./sources.yaml
+
+secrets:
+  bgp_password:
+    external: true
+  maxmind_account_id:
+    external: true
+  maxmind_license_key:
+    external: true
+  webhook_secret:
+    external: true

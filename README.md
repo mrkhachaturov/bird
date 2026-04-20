@@ -302,59 +302,79 @@ curl -X POST -H "X-Hub-Signature-256: sha256=$sig" http://localhost:9090/refresh
 
 ---
 
-## Config templating (optional)
+## Config delivery — two modes
 
-For deployments that inject `bird.conf` via docker configs/secrets — e.g. a
-BGP MD5 password that must come from a Docker secret, not be checked into the
-config file — set `BIRD_CONF_TEMPLATE` to a template path. The entrypoint
-renders it with `envsubst` at startup.
+You can deliver `bird.conf` to the container in **two ways**. Both are
+supported; pick whichever fits your deployment.
 
-Example `bird.conf.tmpl`:
+### Mode A — plain file (default)
+
+Mount a ready-to-use `bird.conf` at `/etc/bird/bird.conf`. BIRD reads it
+verbatim — no rendering, no substitution. Matches the `v0.1.0` behaviour.
+
+```yaml
+# examples/docker-compose.yml
+services:
+  bird:
+    volumes:
+      - ./bird/bird.conf:/etc/bird/bird.conf:ro
+```
+
+Example file: [`examples/bird/bird.conf`](examples/bird/bird.conf). Use this
+mode when your config has no secrets, or when you're fine committing the BGP
+MD5 password in clear text.
+
+### Mode B — template rendered at startup
+
+Set `BIRD_CONF_TEMPLATE` to the path of a template file. At startup the
+entrypoint runs `envsubst` over it and writes the result to `$BIRD_CONF`.
+The secret enters only at runtime, from a Docker secret — your committed
+file contains just a placeholder, no secret value.
+
+Example template: [`examples/bird/bird.conf.tmpl`](examples/bird/bird.conf.tmpl).
+The relevant snippet:
 
 ```bird
-protocol bgp MRK {
-    local as 64500;
-    neighbor 10.1.131.1 as 64501;
-    ${BGP_PASSWORD_LINE}         # optional; empty when BGP_PASSWORD unset
-    ipv4 {
-        import none;
-        export filter bgp_out;
-    };
+protocol bgp PEER from bgp_template {
+    neighbor 198.51.100.1 as 64501;
+    ${BGP_PASSWORD_LINE}         # ← placeholder; no secret in the file
 }
 ```
 
-Compose snippet:
+Supported placeholders:
 
-```yaml
-services:
-  bird:
-    image: ghcr.io/astrateam-net/bird-maxmind:0.1.1
-    environment:
-      BIRD_CONF_TEMPLATE: /etc/bird/bird.conf.tmpl
-      BGP_PASSWORD_FILE: /run/secrets/bgp_password
-    configs:
-      - source: bird_conf_tmpl
-        target: /etc/bird/bird.conf.tmpl
-    secrets:
-      - bgp_password
-
-configs:
-  bird_conf_tmpl:
-    file: ./bird.conf.tmpl
-
-secrets:
-  bgp_password:
-    external: true
-```
-
-Substitutions available in the template:
-
-| Placeholder | Value |
+| Placeholder | Value at runtime |
 |---|---|
-| `${BGP_PASSWORD}` | Raw secret string |
-| `${BGP_PASSWORD_LINE}` | `password "xxx";` if set, empty string otherwise. **Prefer this form** to keep BGP auth optional. |
+| `${BGP_PASSWORD}` | The raw secret string |
+| `${BGP_PASSWORD_LINE}` | `password "xxx";` if a password was provided, **empty string** otherwise. **Prefer this form** — a template using it renders to a valid config both with and without a password supplied, so BGP MD5 auth stays optional. |
 
 Any other `$...` tokens in the template are passed through verbatim.
+
+A complete Swarm stack wiring this up (template via `configs`, password via
+`secrets`) is at
+[`examples/docker-compose.swarm.yml`](examples/docker-compose.swarm.yml).
+
+**What the rendered output actually looks like** — with and without the
+password — is shown by running either of these locally:
+
+```bash
+# With a password
+docker run --rm \
+  -e BIRD_CONF_TEMPLATE=/etc/bird/bird.conf.tmpl \
+  -e BGP_PASSWORD="s3cr3t" \
+  -e RUN_ONCE=true \
+  -v "$PWD/examples/bird/bird.conf.tmpl:/etc/bird/bird.conf.tmpl:ro" \
+  ghcr.io/astrateam-net/bird-maxmind:0.1.1
+
+# Without a password — the placeholder becomes an empty line
+docker run --rm \
+  -e BIRD_CONF_TEMPLATE=/etc/bird/bird.conf.tmpl \
+  -e RUN_ONCE=true \
+  -v "$PWD/examples/bird/bird.conf.tmpl:/etc/bird/bird.conf.tmpl:ro" \
+  ghcr.io/astrateam-net/bird-maxmind:0.1.1
+```
+
+In both cases `bird -p` passes.
 
 ---
 
