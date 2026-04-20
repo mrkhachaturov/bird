@@ -1,19 +1,21 @@
 # ---------------------------------------------------------------------------
 # Example bird.conf.tmpl — used when BIRD_CONF_TEMPLATE is set.
 #
-# At container startup, entrypoint.sh runs `envsubst` over this file and
-# writes the result to $BIRD_CONF (default /etc/bird/bird.conf). BIRD then
-# reads the rendered file, not the template.
+# Rendered at container startup: `envsubst` replaces placeholders and writes
+# the result to $BIRD_CONF. BIRD then reads the rendered file.
 #
-# Supported placeholders (anything else is passed through verbatim):
-#   ${BGP_PASSWORD}       — raw secret string loaded from BGP_PASSWORD or
-#                           BGP_PASSWORD_FILE (docker secret)
-#   ${BGP_PASSWORD_LINE}  — whole `password "xxx";` statement, OR an empty
-#                           string if no password was supplied. Use this
-#                           form to keep MD5 auth OPTIONAL in one template.
+# Supported placeholders:
+#   ${BGP_PASSWORD}       — raw secret string from BGP_PASSWORD[_FILE]
+#   ${BGP_PASSWORD_LINE}  — the whole `password "xxx";` statement, OR an
+#                           empty string when no password was supplied.
+#                           Use this form to keep MD5 auth OPTIONAL.
+# Anything else starting with `$` passes through verbatim.
 #
-# This file is safe to commit to a public Git repository — the actual
-# secret only enters at container startup from a Docker secret.
+# Also demonstrates the MULTIPLE-EXPORT-FILTERS pattern — see `filter …`
+# blocks and the two `protocol bgp …` peers at the bottom.
+#
+# This file is safe to commit to a public Git repository — no secret lives
+# in it, only placeholder names.
 # ---------------------------------------------------------------------------
 
 log stderr all;
@@ -48,11 +50,19 @@ function tag_service(int service_code) {
     accept;
 }
 
-filter bgp_out {
+# Full feed — RU + all service groups.
+filter bgp_out_full {
     if proto = "static_RU"     then tag_ru(201);
     if proto = "static_RU_Max" then tag_ru(202);
     if proto = "static_Google" then tag_service(102);
     if proto = "static_Meta"   then tag_service(101);
+    reject;
+}
+
+# Minimal feed — RU only, no service lists.
+filter bgp_out_ru_only {
+    if proto = "static_RU"     then tag_ru(201);
+    if proto = "static_RU_Max" then tag_ru(202);
     reject;
 }
 
@@ -61,15 +71,23 @@ template bgp bgp_template {
     local as 64500;
     ipv4 {
         import none;
-        export filter bgp_out;
         next hop self;
     };
 }
 
-protocol bgp PEER from bgp_template {
-    description "Upstream BGP peer";
+protocol bgp PEER_FULL from bgp_template {
+    description "Upstream that gets everything (RU + services)";
     neighbor 198.51.100.1 as 64501;
+    ipv4 { export filter bgp_out_full; };
 
-    # Replaced at startup by either `password "xxx";` or an empty line.
+    # The placeholder below is replaced at container startup — either with
+    # `password "xxx";` or with an empty string (see CHANGELOG v0.1.1).
+    ${BGP_PASSWORD_LINE}
+}
+
+protocol bgp PEER_RU from bgp_template {
+    description "Upstream that gets RU only";
+    neighbor 198.51.100.2 as 64502;
+    ipv4 { export filter bgp_out_ru_only; };
     ${BGP_PASSWORD_LINE}
 }
