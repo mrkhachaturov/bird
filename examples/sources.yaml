@@ -1,29 +1,50 @@
-# Each entry produces /etc/bird/<name>.txt in bird "route X reject;" format.
-# Reference them from bird.conf with: include "<name>.txt";
+# Example sources.yaml — mix of all three supported source types.
+# Replace or extend with whatever lists your deployment needs.
+#
+# Every entry produces /etc/bird/<name>.txt in BIRD "route X reject;" format,
+# ready to be `include`d from your bird.conf (see examples/bird/bird.conf).
+
 sources:
-  # --- url sources (same pattern as your chklist.sh) ---
+
+  # ─── type: url ─────────────────────────────────────────────────────────
+  # Any plaintext file with one CIDR per line. `strip_comments: true` drops
+  # lines beginning with '#' before transforming.
+
   - name: RU
     type: url
     url: https://github.com/ipverse/rir-ip/raw/master/country/ru/ipv4-aggregated.txt
     strip_comments: true
 
-  - name: Google
-    type: url
-    url: https://raw.githubusercontent.com/mrkhachaturov/ipranges/main/google/ipv4.txt
-
   - name: Meta
     type: url
     url: https://raw.githubusercontent.com/SecOps-Institute/FacebookIPLists/master/facebook_ip_list.lst
 
-  # --- maxmind (new) ---
-  # Comment out if you don't want to run both RU sources in parallel.
+  # Your own curated list — create a repo with CIDR-per-line files, point
+  # a source at the raw URL. Paired with the /refresh webhook, a git push
+  # to the list repo propagates to bird within seconds.
+  #
+  # - name: MyOverrides
+  #   type: url
+  #   url: https://raw.githubusercontent.com/<your-org>/<your-list-repo>/main/ipv4.txt
+  #   strip_comments: true
+
+
+  # ─── type: maxmind_country ─────────────────────────────────────────────
+  # Extracts every IPv4 CIDR with the given ISO country code from MaxMind
+  # GeoLite2-Country. Requires MAXMIND_ACCOUNT_ID + MAXMIND_LICENSE_KEY
+  # (free GeoLite2 account works).
+
   - name: RU_Max
     type: maxmind_country
     iso: RU
 
-  # --- asn (drafted in your test_asn_fetch.sh, now first-class) ---
-  - name: Roblox
-    type: asn
-    asns:
-      - AS22697
-      - AS11281
+
+  # ─── type: asn ─────────────────────────────────────────────────────────
+  # Resolves one or more AS numbers to CIDR lists via bgpq4 → whois →
+  # RIPE RIS API fallback chain. Example uses AS13335 (Cloudflare) just to
+  # show the syntax — replace with the ASNs you actually care about.
+  #
+  # - name: Cloudflare
+  #   type: asn
+  #   asns:
+  #     - AS13335
