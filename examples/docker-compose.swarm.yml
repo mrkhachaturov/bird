@@ -15,8 +15,10 @@ services:
   bird:
     image: ghcr.io/astrateam-net/bird-maxmind:0.1.1
     environment:
-      BIRD_CONF_TEMPLATE:       /etc/bird/bird.conf.tmpl   # ← enables template mode
-      BIRD_CONF:                /etc/bird/bird.conf
+      # Enables template mode. BIRD_CONF defaults to /etc/bird/bird.conf — no
+      # need to override it unless you want the rendered file in a non-default
+      # location (e.g. a tmpfs so the rendered secret never touches disk).
+      BIRD_CONF_TEMPLATE:       /etc/bird/bird.conf.tmpl
       BGP_PASSWORD_FILE:        /run/secrets/bgp_password
       MAXMIND_ACCOUNT_ID_FILE:  /run/secrets/maxmind_account_id
       MAXMIND_LICENSE_KEY_FILE: /run/secrets/maxmind_license_key
