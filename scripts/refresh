@@ -1,0 +1,5 @@
+#!/bin/bash
+# Force an immediate fetch cycle — url + asn sources always re-fetched,
+# MaxMind reuses cache per MAXMIND_REFRESH_INTERVAL. Use `refresh-maxmind` to
+# bypass the MaxMind cache.
+exec /usr/local/bin/fetch-lists.sh "$@"

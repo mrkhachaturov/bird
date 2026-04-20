@@ -1,0 +1,31 @@
+# Example compose for local builds and ad-hoc deployments.
+# For production, pull the pre-built image and drop the `build:` stanza.
+services:
+  bird:
+    build:
+      context: ..           # parent dir of examples/ (the repo root)
+    image: mrkhachaturov/bird:local
+    container_name: bird
+    network_mode: host
+    environment:
+      MAXMIND_ACCOUNT_ID: "${MAXMIND_ACCOUNT_ID:-}"
+      MAXMIND_LICENSE_KEY: "${MAXMIND_LICENSE_KEY:-}"
+      MAXMIND_UPDATE: "${MAXMIND_UPDATE:-auto}"
+      MAXMIND_CSV_DIR: "${MAXMIND_CSV_DIR:-/var/cache/maxmind}"
+      MAXMIND_DOWNLOAD_URL: "${MAXMIND_DOWNLOAD_URL:-}"
+      MAXMIND_REFRESH_INTERVAL: "${MAXMIND_REFRESH_INTERVAL:-7d}"
+      REFRESH_INTERVAL: "${REFRESH_INTERVAL:-24h}"
+      RUN_ONCE: "${RUN_ONCE:-false}"
+      WEBHOOK_SECRET: "${WEBHOOK_SECRET:-}"
+      WEBHOOK_PORT: "${WEBHOOK_PORT:-9090}"
+    volumes:
+      - ./bird:/etc/bird
+      - ./sources.yaml:/etc/blacklist/sources.yaml:ro
+      - lists-cache:/var/cache/blacklist
+      - ./maxmind-cache:/var/cache/maxmind
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+volumes:
+  lists-cache:

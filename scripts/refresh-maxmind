@@ -1,0 +1,5 @@
+#!/bin/bash
+# Force an immediate fetch including a fresh MaxMind download (ignores the
+# cache-age check). Useful after manually editing your GitHub sources if
+# you also want MaxMind re-pulled on the same go.
+MAXMIND_REFRESH_INTERVAL=0 exec /usr/local/bin/fetch-lists.sh "$@"

@@ -1,0 +1,16 @@
+#!/bin/bash
+# Quick operational snapshot: BGP sessions, loaded route counts, last fetch md5.
+echo "=== BGP sessions ==="
+birdc show protocols 2>/dev/null | awk 'NR==1 || /BGP/'
+echo
+echo "=== route counts per protocol ==="
+birdc show protocols 2>/dev/null | awk '/Static/ {print $1}' | while read p; do
+    c=$(birdc "show route protocol $p count" 2>/dev/null | grep -oE '[0-9]+ of [0-9]+' | tail -1)
+    printf "  %-20s %s\n" "$p" "$c"
+done
+echo
+echo "=== last md5 ==="
+cat /var/cache/blacklist/md5.txt 2>/dev/null && echo
+echo
+echo "=== maxmind cache ==="
+ls -la "${MAXMIND_CSV_DIR:-/var/cache/maxmind}" 2>/dev/null | grep -v '^total' | head -5

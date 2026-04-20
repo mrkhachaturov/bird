@@ -1,0 +1,5 @@
+.env
+*.local
+examples/maxmind-cache/
+examples/bird/*.txt
+examples/bird/*.ctl

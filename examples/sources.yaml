@@ -1,0 +1,29 @@
+# Each entry produces /etc/bird/<name>.txt in bird "route X reject;" format.
+# Reference them from bird.conf with: include "<name>.txt";
+sources:
+  # --- url sources (same pattern as your chklist.sh) ---
+  - name: RU
+    type: url
+    url: https://github.com/ipverse/rir-ip/raw/master/country/ru/ipv4-aggregated.txt
+    strip_comments: true
+
+  - name: Google
+    type: url
+    url: https://raw.githubusercontent.com/mrkhachaturov/ipranges/main/google/ipv4.txt
+
+  - name: Meta
+    type: url
+    url: https://raw.githubusercontent.com/SecOps-Institute/FacebookIPLists/master/facebook_ip_list.lst
+
+  # --- maxmind (new) ---
+  # Comment out if you don't want to run both RU sources in parallel.
+  - name: RU_Max
+    type: maxmind_country
+    iso: RU
+
+  # --- asn (drafted in your test_asn_fetch.sh, now first-class) ---
+  - name: Roblox
+    type: asn
+    asns:
+      - AS22697
+      - AS11281
