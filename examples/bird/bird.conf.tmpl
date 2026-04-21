@@ -77,6 +77,16 @@ filter bgp_out_ru_only {
 template bgp bgp_template {
     hold time 240;
     local as 64500;
+
+    # REQUIRED when bird runs inside a Docker bridge/overlay network:
+    # the container's interfaces are 172.x.x.x, so peers on 10.x/192.168.x
+    # aren't directly-connected neighbors from bird's point of view.
+    # Without `multihop`, bird silently sits in BGP Idle ("Waiting for X to
+    # become my neighbor" — trace-level only, invisible at info logging).
+    # Safe to keep even with host networking or native installs.
+    # See README → Troubleshooting → "BGP stays in Idle state forever".
+    multihop 10;
+
     ipv4 {
         import none;
         next hop self;
