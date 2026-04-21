@@ -422,6 +422,36 @@ between the two, NAT without port-forward (WSL, etc.), or your `local` address
 doesn't exist on the host. Verify with `ip route get <peer-ip>` and
 `curl telnet://<peer-ip>:179`.
 
+**BGP stays in `Idle` state forever — no logs, no TCP connect attempts**
+Symptom: `birdc show protocols all <peer>` shows `BGP state: Idle`, no entries
+for TCP port 179 in the container's `/proc/net/tcp`, and nothing in bird's log
+beyond the initial `Started` line.
+
+Cause: BIRD's `bgp_start_locked()` (`proto/bgp/bgp.c`) looks up the peer via
+`neigh_find()` and expects it on a **directly-connected subnet**. When bird
+runs inside a Docker bridge/overlay network, the container's interfaces are
+`172.x.x.x` (bridge) — so a peer at e.g. `10.1.130.254` is not considered a
+directly-connected neighbor and the protocol silently waits
+("Waiting for X to become my neighbor", emitted only at `trace` level, hidden
+at default log levels).
+
+Fix: add `multihop` to the BGP protocol or template:
+
+```bird
+template bgp bgp_template {
+    local as 64500;
+    multihop 10;           # ← REQUIRED for containerised bird
+    ...
+}
+```
+
+With `multihop`, BIRD skips the neighbor-scope check and attempts the TCP
+connect directly (`cf->multihop || bgp_is_dynamic(p)` branch, same file).
+Not needed when the container runs with `network_mode: host` (it then shares
+the host's interfaces and the peer subnet is actually directly connected),
+but `network_mode: host` has its own trade-offs — `multihop` in bridge mode
+is the simpler fix.
+
 ---
 
 ## Repository layout
