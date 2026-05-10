@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-05-10
+
+### Changed
+- URL sources now fetch with `wget -4` instead of `curl`, forcing IPv4 for
+  `raw.githubusercontent.com` and other plaintext CIDR list downloads. This
+  avoids recent IPv6 path hangs while preserving the existing three-attempt
+  retry loop and only replacing cached lists after a successful non-empty
+  download.
+
+### Added
+- Regression test covering URL fetch retries, IPv4-only `wget` flags, and the
+  guard against falling back to `curl`.
+
 ## [0.1.1] - 2026-04-21
 
 ### Added
@@ -78,6 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use `network_mode: host` with `cap_add: [NET_ADMIN, NET_RAW]` for real BGP
   sessions so BIRD's source IP is a host interface, not a NATed container IP.
 
-[Unreleased]: https://github.com/mrkhachaturov/bird/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/mrkhachaturov/bird/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/mrkhachaturov/bird/releases/tag/v0.1.2
 [0.1.1]: https://github.com/mrkhachaturov/bird/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mrkhachaturov/bird/releases/tag/v0.1.0

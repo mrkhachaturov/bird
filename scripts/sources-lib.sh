@@ -8,7 +8,7 @@ fetch_url() {
     local max_retries=3 retry_delay=10 attempt=1
 
     while [ $attempt -le $max_retries ]; do
-        if curl -fsSL --max-time 60 -o "$tmp" "$url" && [ -s "$tmp" ]; then
+        if wget -4 -q --connect-timeout=10 --read-timeout=60 --tries=1 -O "$tmp" "$url" && [ -s "$tmp" ]; then
             if [ "$strip_comments" = "true" ]; then
                 sed -i '/^#/d; /^[[:space:]]*$/d' "$tmp"
             fi
